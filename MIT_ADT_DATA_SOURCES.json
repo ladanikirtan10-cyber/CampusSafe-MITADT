@@ -1,0 +1,8 @@
+{
+  "campus_identity": "MIT ADT official contact page: Rajbaugh/Loni Kalbhor, Pune 412201; university describes a 125-acre campus.",
+  "virtual_tour": "MIT ADT official Virtual Tour page: https://mituniversity.ac.in/virtualtour/",
+  "facilities": "MIT ADT official campus/amenities pages: healthcare, sports, hostels, cafeteria/mess, transport, auditoriums, girls hostel, RK Memorial, gym, running, boating, swimming.",
+  "infrastructure": "MIT ADT NAAC infrastructure disclosure: campus infrastructure, CCTV, Wi-Fi, KRC, sports and healthcare.",
+  "coordinate_anchor": "Coordinate anchor used in this prototype: 18.49291445, 74.02548631, derived from a published coordinate reference for MIT ADT University. Verify against MIT ADT GIS before production use.",
+  "important": "No real MIT ADT incident history is included. Seed incidents are explicitly SIMULATED. Exact building/road/hostel coordinates are reference approximations until MIT ADT supplies an authoritative GIS/POI dataset."
+}

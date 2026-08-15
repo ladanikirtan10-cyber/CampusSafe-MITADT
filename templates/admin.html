@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CampusSafe — MIT ADT Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+<nav class="nav"><div class="brand">🛡️ CampusSafe · MIT ADT Admin</div><div><a href="/">Student App</a><button class="seed" onclick="seed()">Load Demo Data</button></div></nav>
+<main class="container">
+<section class="hero small"><div><span class="pill">Command Center</span><h1>MIT ADT Predictive Safety Dashboard</h1><p>Monitor the MIT ADT campus safety model. Demo incidents are simulated and must be replaced with authorized university data before operational use.</p></div></section>
+<div id="cards" class="stats"></div>
+<div class="grid two">
+<section class="card"><h2>Campus Risk Map</h2><div id="map"></div></section>
+<section class="card"><h2>Risk Intelligence</h2><div id="intelligence"></div></section>
+</div>
+<section class="card"><h2>Incident Management</h2><div class="tablewrap"><table><thead><tr><th>ID</th><th>Category</th><th>Severity</th><th>Time</th><th>Status</th><th>Action</th></tr></thead><tbody id="incidentTable"></tbody></table></div></section>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map;
+function initMap(){map=L.map('map').setView([18.492914,74.025486],16);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);}
+async function load(){
+ const [s,incs,bs,rz]=await Promise.all([
+  fetch('/api/summary').then(r=>r.json()),fetch('/api/incidents').then(r=>r.json()),
+  fetch('/api/blackspots').then(r=>r.json()),fetch('/api/redzones').then(r=>r.json())
+ ]);
+ cards.innerHTML=[
+  ['Total incidents',s.total_incidents],['Open',s.open_incidents],['Critical',s.critical_incidents],
+  ['Black spots',s.blackspots],['Red time zones',s.redzones]
+ ].map(x=>`<div class="stat"><b>${x[1]}</b><span>${x[0]}</span></div>`).join('');
+ intelligence.innerHTML=`
+ <h3>🔴 Black Spots</h3>${bs.length?bs.map(x=>`<div class="intel"><b>#${x.id}</b> — ${x.label} — <strong>${x.risk}/100</strong><br><small>${x.incidents} nearby incidents</small></div>`).join(''):'<p>No clusters detected yet.</p>'}
+ <h3>⏰ Red Time Zones</h3>${rz.length?rz.map(x=>`<div class="intel"><b>${x.time}</b> — ${x.label} — <strong>${x.risk}/100</strong><br><small>${x.incidents} incidents</small></div>`).join(''):'<p>No time pattern detected yet.</p>'}
+ <p class="muted">Prediction engine: ${s.sklearn?'DBSCAN + risk scoring':'fallback clustering + risk scoring'}.</p>`;
+ incs.forEach(x=>L.circleMarker([x.latitude,x.longitude],{radius:7}).addTo(map).bindPopup(`#${x.id} ${x.category}<br>Severity ${x.severity}/5`));
+ bs.forEach(x=>L.circle([x.latitude,x.longitude],{radius:100,color:'#dc2626',fillOpacity:.15}).addTo(map).bindPopup(`Black Spot ${x.id}: ${x.risk}/100`));
+ incidentTable.innerHTML=incs.map(x=>`<tr><td>#${x.id}</td><td>${x.category}</td><td>${'★'.repeat(x.severity)}</td><td>${new Date(x.occurred_at).toLocaleString()}</td><td><span class="status">${x.status}</span></td><td>${x.status!=='Resolved'?`<button onclick="resolve(${x.id})">Resolve</button> <button onclick="intervene(${x.id})">Deploy</button>`:'✓'}</td></tr>`).join('');
+}
+async function resolve(id){await fetch('/api/incidents/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'Resolved'})});load();}
+async function intervene(id){await fetch('/api/interventions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({incident_id:id,action:'Deploy security patrol',assigned_to:'Campus Security'})});alert('Security intervention assigned.');}
+async function seed(){await fetch('/api/seed',{method:'POST'});location.reload();}
+initMap();load();
+</script>
+</body>
+</html>

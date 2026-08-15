@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CampusSafe — MIT ADT Student</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+<nav class="nav">
+  <div class="brand">🛡️ CampusSafe · MIT ADT</div>
+  <div><a href="/">Student</a><a href="/admin">Admin Dashboard</a></div>
+</nav>
+<main class="container">
+  <section class="hero">
+    <div>
+      <span class="pill">Predictive Campus Safety</span>
+      <h1>MIT ADT Campus Safety</h1>
+      <p>Community-powered safety intelligence for the MIT ADT University campus. Demo incidents are clearly marked as simulated until authorized campus data is connected.</p>
+    </div>
+    <button class="sos" onclick="sos()">🚨 SOS</button>
+  </section>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>Report an unsafe incident</h2>
+      <form id="reportForm">
+        <label>Incident category
+          <select id="category" required>
+            <option>Harassment</option><option>Suspicious Activity</option><option>Theft</option>
+            <option>Poor Lighting</option><option>Unsafe Infrastructure</option><option>Other</option>
+          </select>
+        </label>
+        <label>Severity
+          <input id="severity" type="range" min="1" max="5" value="3" oninput="sevLabel.textContent=this.value">
+          <span id="sevLabel">3</span>/5
+        </label>
+        <label>Description
+          <textarea id="description" rows="4" required placeholder="Describe what happened or what feels unsafe..."></textarea>
+        </label>
+        <div class="grid two">
+          <label>Latitude<input id="lat" type="number" step="any" value="18.492914" required></label>
+          <label>Longitude<input id="lng" type="number" step="any" value="74.025486" required></label>
+        </div>
+        <button type="button" class="secondary" onclick="useLocation()">📍 Use my location</button>
+        <label class="check"><input id="anonymous" type="checkbox" checked> Submit anonymously</label>
+        <input id="name" placeholder="Your name (only if not anonymous)">
+        <input id="evidence" placeholder="Evidence URL (optional)">
+        <button class="primary" type="submit">Submit Safety Report</button>
+      </form>
+      <div id="reportMsg"></div>
+    </section>
+
+    <section class="card">
+      <h2>Campus safety map</h2>
+      <div id="map"></div>
+      <div id="mapLegend" class="legend">Loading risk intelligence…</div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Safe Route</h2>
+    <div class="grid three">
+      <label>From<select id="start"></select></label>
+      <label>To<select id="end"></select></label>
+      <button class="primary routebtn" onclick="findRoute()">Find safer route</button>
+    </div>
+    <div id="routeResult"></div>
+  </section>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const nodes = {{ nodes|tojson }};
+let map, markers=[];
+function init(){
+  map=L.map('map').setView([18.492914,74.025486],16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  start.innerHTML=nodes.map(n=>`<option>${n}</option>`).join('');
+  end.innerHTML=nodes.map(n=>`<option>${n}</option>`).join('');
+  end.value='Academic Block';
+  loadMap();
+}
+async function loadMap(){
+  const [incs,bs,rz]=await Promise.all([
+    fetch('/api/incidents').then(r=>r.json()),
+    fetch('/api/blackspots').then(r=>r.json()),
+    fetch('/api/redzones').then(r=>r.json())
+  ]);
+  incs.forEach(x=>{
+    const m=L.circleMarker([x.latitude,x.longitude],{radius:6,weight:2,fillOpacity:.7})
+      .addTo(map).bindPopup(`<b>${x.category}</b><br>Severity: ${x.severity}/5<br>${x.description}`);
+    markers.push(m);
+  });
+  bs.forEach(x=>{
+    L.circle([x.latitude,x.longitude],{radius:100,color:'#dc2626',fillOpacity:.12})
+      .addTo(map).bindPopup(`Black Spot #${x.id}<br>Risk ${x.risk}/100<br>${x.incidents} incidents`);
+  });
+  mapLegend.innerHTML=`<b>Black spots:</b> ${bs.length} &nbsp; | &nbsp; <b>Red time zones:</b> ${rz.length}`;
+}
+async function useLocation(){
+  if(!navigator.geolocation) return alert('Geolocation is not supported.');
+  navigator.geolocation.getCurrentPosition(p=>{lat.value=p.coords.latitude.toFixed(6);lng.value=p.coords.longitude.toFixed(6);},
+    ()=>alert('Location permission was not granted.'));
+}
+reportForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const payload={category:category.value,severity:+severity.value,description:description.value,
+    latitude:+lat.value,longitude:+lng.value,anonymous:anonymous.checked,
+    reporter_name:name.value,evidence_url:evidence.value};
+  const r=await fetch('/api/incidents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d=await r.json();
+  reportMsg.innerHTML=r.ok?`<div class="success">✓ Report #${d.incident_id} submitted. New local risk score: <b>${d.new_risk}/100</b></div>`:`<div class="error">${d.error}</div>`;
+  if(r.ok){reportForm.reset();anonymous.checked=true;sevLabel.textContent='3';loadMap();}
+});
+async function findRoute(){
+  const d=await fetch(`/api/routes?start=${encodeURIComponent(start.value)}&end=${encodeURIComponent(end.value)}`).then(r=>r.json());
+  if(d.error){routeResult.innerHTML=`<div class="error">${d.error}</div>`;return;}
+  routeResult.innerHTML=`<div class="route"><b>Recommended safer route</b><br>${d.route.join(' → ')}<br><span>Average risk: <b>${d.risk}/100</b></span></div>`;
+  d.points.forEach(p=>L.marker([p.lat,p.lng]).addTo(map).bindPopup(`${p.name}<br>Risk: ${p.risk}/100`));
+}
+function sos(){
+  alert('SOS initiated in demo mode. In a production deployment this would notify authorized campus security with the student location and emergency details.');
+}
+init();
+</script>
+</body>
+</html>
