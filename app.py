@@ -119,6 +119,28 @@ def init_db():
         FOREIGN KEY (incident_id) REFERENCES incidents(id)
     );
     """)
+    count = conn.execute("SELECT COUNT(*) FROM incidents").fetchone()[0]
+    if count == 0:
+        base = datetime.now()
+        spots = [
+            (18.49225,74.02410,"Poor Lighting",3,"SIMULATED: Low visibility reported around a parking-area path."),
+            (18.49230,74.02415,"Suspicious Activity",4,"SIMULATED: Suspicious activity near parking zone."),
+            (18.49345,74.02375,"Crowding",2,"SIMULATED: Event-related crowding around the memorial area."),
+            (18.49350,74.02370,"Poor Lighting",3,"SIMULATED: Low visibility on a riverside approach."),
+            (18.49495,74.02335,"Unsafe Infrastructure",3,"SIMULATED: Pathway condition near river-side activity zone."),
+            (18.49215,74.02705,"Harassment",5,"SIMULATED: Safety complaint near girls hostel zone."),
+            (18.49220,74.02700,"Suspicious Activity",4,"SIMULATED: Unfamiliar person reported near hostel approach."),
+            (18.49300,74.02755,"Medical",2,"SIMULATED: Minor medical assistance request near hospital."),
+            (18.49420,74.02680,"Theft",4,"SIMULATED: Property theft report near sports complex."),
+            (18.49375,74.02575,"Other",2,"SIMULATED: Crowd movement after an event."),
+        ]
+        for i, (lat,lng,cat,sev,desc) in enumerate(spots):
+            dt = base - timedelta(days=random.randint(0,25), hours=random.randint(0,23))
+            conn.execute("""INSERT INTO incidents
+            (reporter_name, anonymous, category, severity, description, latitude, longitude,
+             occurred_at, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+             (None,1,cat,sev,desc,lat,lng,dt.isoformat(timespec="minutes"),
+              "Resolved" if i%3==0 else "Open", dt.isoformat()))
     conn.commit()
     conn.close()
 
