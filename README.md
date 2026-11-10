@@ -1,5 +1,9 @@
 # CampusSafe — MIT ADT University Edition (V2)
 
+> 🚀 **Live Demo on Vercel**:
+> - **Student Safety App**: [https://campussafe-mitadt.vercel.app](https://campussafe-mitadt.vercel.app)
+> - **Admin Predictive Dashboard**: [https://campussafe-mitadt.vercel.app/admin](https://campussafe-mitadt.vercel.app/admin)
+
 This version adapts the CampusSafe prototype to the MIT ADT University campus context.
 
 ## Included
