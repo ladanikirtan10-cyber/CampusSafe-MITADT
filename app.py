@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
-import sqlite3, os, math, random
+import sqlite3, os, math, random, shutil
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 
@@ -12,7 +12,18 @@ except Exception:
 
 app = Flask(__name__)
 CORS(app)
-DB = os.path.join(os.path.dirname(__file__), "campussafe.db")
+
+# Use /tmp for writable database when running serverless on Vercel
+if os.environ.get("VERCEL"):
+    DB = "/tmp/campussafe.db"
+    source_db = os.path.join(os.path.dirname(__file__), "campussafe.db")
+    if not os.path.exists(DB) and os.path.exists(source_db):
+        try:
+            shutil.copy2(source_db, DB)
+        except Exception:
+            pass
+else:
+    DB = os.path.join(os.path.dirname(__file__), "campussafe.db")
 
 # MIT ADT University reference campus
 # Coordinate anchor is the university's published/identified location area.
